@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Visualizador de Modelo 3D</title>
+    <title>Visualizador de Modelo 3D Mejorado</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <style>
         body { 
             margin: 0; 
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
         #contenedor {
             width: 100%;
@@ -17,12 +19,98 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            position: relative;
+        }
+        #panel-control {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 100;
+            width: 200px;
+        }
+        .control-grupo {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 5px;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #info-carga {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+        #wireframe-toggle {
+            margin-top: 5px;
         }
     </style>
 </head>
 <body>
-    <div id="contenedor"></div>
+    <div id="contenedor">
+        <div id="panel-control">
+            <div class="control-grupo">
+                <label for="color-modelo">Color del modelo:</label>
+                <input type="color" id="color-modelo" value="#049ef4">
+            </div>
+            <div class="control-grupo">
+                <label for="velocidad-rotacion">Velocidad de rotación:</label>
+                <input type="range" id="velocidad-rotacion" min="0" max="0.05" step="0.001" value="0.01">
+            </div>
+            <div class="control-grupo">
+                <label>Tipo de material:</label>
+                <select id="tipo-material">
+                    <option value="phong">Brillante (Phong)</option>
+                    <option value="lambert">Mate (Lambert)</option>
+                    <option value="standard">Estándar (PBR)</option>
+                </select>
+            </div>
+            <div class="control-grupo">
+                <input type="checkbox" id="wireframe-toggle"> 
+                <label for="wireframe-toggle" style="display: inline;">Mostrar wireframe</label>
+            </div>
+            <div class="control-grupo">
+                <button id="reset-camara">Reiniciar cámara</button>
+                <button id="toggle-rotacion">Pausar rotación</button>
+                <button id="capturar-imagen">Capturar imagen</button>
+            </div>
+        </div>
+        <div id="info-carga">Cargando modelo...</div>
+    </div>
     <script>
+        // Variables globales
+        let mesh;
+        let controls;
+        let autoRotate = true;
+        let rotationSpeed = 0.01;
+        let radius;
+
         // Inicializar la escena
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xf0f0f0);
@@ -31,10 +119,15 @@
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         
         // Configurar renderer
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.getElementById("contenedor").appendChild(renderer.domElement);
+        
+        // Añadir controles de órbita
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
         
         // Añadir luces
         const ambientLight = new THREE.AmbientLight(0x404040, 1);
@@ -43,10 +136,16 @@
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
         directionalLight.position.set(1, 1, 1);
         scene.add(directionalLight);
+
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        backLight.position.set(-1, -1, -1);
+        scene.add(backLight);
         
         // Cargar el modelo STL
         const loader = new THREE.STLLoader();
-        loader.load("https://cdn.jsdelivr.net/gh/AnaLaraImibic/DominiosdeAna@095796c984d2ba1161e5dbd03d0aeb2090e67307/Modelomallasimplificada.stl", function (geometry) {
+        const urlModelo = "https://cdn.jsdelivr.net/gh/AnaLaraImibic/DominiosdeAna@095796c984d2ba1161e5dbd03d0aeb2090e67307/Modelomallasimplificada.stl";
+        
+        loader.load(urlModelo, function (geometry) {
             // Centrar el modelo en el origen
             geometry.computeBoundingBox();
             const center = new THREE.Vector3();
@@ -59,29 +158,136 @@
                 specular: 0x111111,
                 shininess: 100
             });
-            const mesh = new THREE.Mesh(geometry, material);
+            
+            mesh = new THREE.Mesh(geometry, material);
             
             // Calcular el tamaño del modelo y ajustar la cámara
             geometry.computeBoundingSphere();
-            const radius = geometry.boundingSphere.radius;
+            radius = geometry.boundingSphere.radius;
             camera.position.set(0, 0, radius * 2.5);
+            controls.target.set(0, 0, 0);
+            controls.update();
             
             scene.add(mesh);
             
-            // Función de animación
-            function animate() {
-                requestAnimationFrame(animate);
-                mesh.rotation.y += 0.01;
-                renderer.render(scene, camera);
-            }
+            // Ocultar el mensaje de carga
+            document.getElementById("info-carga").textContent = "Modelo cargado con éxito";
+            setTimeout(() => {
+                document.getElementById("info-carga").style.display = "none";
+            }, 2000);
+            
+            // Iniciar animación
             animate();
+        }, 
+        // Progreso de carga
+        function (xhr) {
+            const porcentaje = Math.round((xhr.loaded / xhr.total) * 100);
+            document.getElementById("info-carga").textContent = Cargando: ${porcentaje}%;
+        },
+        // Error de carga
+        function (error) {
+            console.error("Error al cargar el modelo:", error);
+            document.getElementById("info-carga").textContent = "Error al cargar el modelo";
+            document.getElementById("info-carga").style.backgroundColor = "rgba(255, 0, 0, 0.7)";
         });
+        
+        // Función de animación
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Actualizar controles de órbita
+            controls.update();
+            
+            // Rotar el modelo si está activada la rotación automática
+            if (mesh && autoRotate) {
+                mesh.rotation.y += rotationSpeed;
+            }
+            
+            renderer.render(scene, camera);
+        }
         
         // Manejar cambios de tamaño de ventana
         window.addEventListener('resize', function() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Funciones de control
+        
+        // Cambiar color del modelo
+        document.getElementById("color-modelo").addEventListener("input", function(e) {
+            if (mesh) {
+                mesh.material.color.set(e.target.value);
+            }
+        });
+        
+        // Cambiar velocidad de rotación
+        document.getElementById("velocidad-rotacion").addEventListener("input", function(e) {
+            rotationSpeed = parseFloat(e.target.value);
+        });
+        
+        // Cambiar tipo de material
+        document.getElementById("tipo-material").addEventListener("change", function(e) {
+            if (!mesh) return;
+            
+            const color = mesh.material.color.clone();
+            const wireframe = mesh.material.wireframe;
+            
+            switch(e.target.value) {
+                case "phong":
+                    mesh.material = new THREE.MeshPhongMaterial({
+                        color: color,
+                        specular: 0x111111,
+                        shininess: 100,
+                        wireframe: wireframe
+                    });
+                    break;
+                case "lambert":
+                    mesh.material = new THREE.MeshLambertMaterial({
+                        color: color,
+                        wireframe: wireframe
+                    });
+                    break;
+                case "standard":
+                    mesh.material = new THREE.MeshStandardMaterial({
+                        color: color,
+                        roughness: 0.5,
+                        metalness: 0.5,
+                        wireframe: wireframe
+                    });
+                    break;
+            }
+        });
+        
+        // Toggle wireframe
+        document.getElementById("wireframe-toggle").addEventListener("change", function(e) {
+            if (mesh) {
+                mesh.material.wireframe = e.target.checked;
+            }
+        });
+        
+        // Reiniciar cámara
+        document.getElementById("reset-camara").addEventListener("click", function() {
+            if (!mesh || !radius) return;
+            
+            camera.position.set(0, 0, radius * 2.5);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        });
+        
+        // Toggle rotación automática
+        document.getElementById("toggle-rotacion").addEventListener("click", function() {
+            autoRotate = !autoRotate;
+            this.textContent = autoRotate ? "Pausar rotación" : "Reanudar rotación";
+        });
+        
+        // Capturar imagen
+        document.getElementById("capturar-imagen").addEventListener("click", function() {
+            const link = document.createElement('a');
+            link.download = 'modelo-3d.png';
+            link.href = renderer.domElement.toDataURL('image/png').replace('image/png', 'image/octet-stream');
+            link.click();
         });
     </script>
 </body>
