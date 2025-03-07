@@ -182,7 +182,7 @@
         // Progreso de carga
         function (xhr) {
             const porcentaje = Math.round((xhr.loaded / xhr.total) * 100);
-            document.getElementById("info-carga").textContent = Cargando: ${porcentaje}%;
+            document.getElementById("info-carga").textContent = "Cargando: ${porcentaje}%";
         },
         // Error de carga
         function (error) {
