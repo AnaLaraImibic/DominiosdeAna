@@ -71,7 +71,7 @@
         <div id="panel-control">
             <div class="control-grupo">
                 <label for="color-modelo">Color del modelo:</label>
-                <input type="color" id="color-modelo" value="#049ef4">
+                <input type="color" id="color-modelo" value="#ffffff">
             </div>
         </div>
         <div id="info-carga">Cargando modelo...</div>
@@ -126,7 +126,7 @@
             
             // Crear el material mate (Lambert) y el mesh
             const material = new THREE.MeshLambertMaterial({ 
-                color: 0x049ef4
+                color: 0xffffff
             });
             
             mesh = new THREE.Mesh(geometry, material);
@@ -152,7 +152,7 @@
         // Progreso de carga
         function (xhr) {
             const porcentaje = Math.round((xhr.loaded / xhr.total) * 100);
-            document.getElementById("info-carga").textContent = "Cargando: ${porcentaje}%";
+            document.getElementById("info-carga").textContent = Cargando: ${porcentaje}%;
         },
         // Error de carga
         function (error) {
