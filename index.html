@@ -15,7 +15,7 @@
         document.getElementById("contenedor").appendChild(renderer.domElement);
 
         const loader = new THREE.STLLoader();
-        loader.load("https://cdn.jsdelivr.net/gh/imibic-innovacion/3dtests@cfe02aee91929a9164ac1fbc4805e080daeb2ef2/Modelo%20malla%20simplificada.stl", function (geometry) {
+        loader.load("https://github.com/AnaLaraImibic/DominiosdeAna/blob/095796c984d2ba1161e5dbd03d0aeb2090e67307/Modelomallasimplificada.stl", function (geometry) {
             const material = new THREE.MeshNormalMaterial();
             const mesh = new THREE.Mesh(geometry, material);
             scene.add(mesh);
